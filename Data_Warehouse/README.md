@@ -39,9 +39,7 @@ The Redshift database has 5 tables: songplays, users, songs, artists, and time. 
 
 * `etl.py`: It is main ETL module. It copies all the staging tables to insert values in the fact and dimension tables.
 
-Then there is the `requirements.txt` that contains the required packages for this project.
-
-For configuring the AWS resources. `dwh.cfg` is used.
+For the dependencies `requirements.txt` contains the required packages for this project and for configuring the AWS resources, `dwh.cfg` is used and missing values needs to be editied.
 
 ## How to run Song Play ETL
 
