@@ -3,7 +3,7 @@
 ETL using AWS Redshift to create 5 tables S3 staging tables. The database is staged using Redshift and transformed into a star schema optimized for queries on song play analysis. This includes the following tables.
 
 The database schema as follows:
-![schema](ERD.PNG)
+![schema](ERD.png)
 
 Fact Table
 
