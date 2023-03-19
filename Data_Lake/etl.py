@@ -1,24 +1,17 @@
 import configparser
-from datetime import datetime
 import os
+from datetime import datetime
+
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import udf, col
-from pyspark.sql.functions import (
-    year,
-    month,
-    monotonically_increasing_id,
-    dayofmonth,
-    hour,
-    weekofyear,
-    dayofweek,
-    date_format,
-)
+from pyspark.sql.functions import (col, dayofmonth, dayofweek,
+                                   monotonically_increasing_id, month, udf,
+                                   weekofyear, year)
 
 config = configparser.ConfigParser()
-config.read('dl.cfg')
+config.read("dl.cfg")
 
-os.environ['AWS_ACCESS_KEY_ID'] = config['SECRETS']['AWS_ACCESS_KEY_ID']
-os.environ['AWS_SECRET_ACCESS_KEY'] = config['SECRETS']['AWS_SECRET_ACCESS_KEY']
+os.environ["AWS_ACCESS_KEY_ID"] = config["SECRETS"]["AWS_ACCESS_KEY_ID"]
+os.environ["AWS_SECRET_ACCESS_KEY"] = config["SECRETS"]["AWS_SECRET_ACCESS_KEY"]  # noqa
 
 
 def create_spark_session():
@@ -29,17 +22,22 @@ def create_spark_session():
     return spark
 
 
-def process_song_data(spark, input_data, output_data, song_data_path):
+def process_song_data(
+    spark,
+    input_data,
+    output_data,
+    song_data_path,
+):
     # get filepath to song data file
     song_data = input_data + song_data_path
-    
+
     # read song data file
     song_df = spark.read.json(song_data)
 
     # extract columns to create songs table
     # song_id, title, artist_id, year, duration
     songs_table = song_df.select(
-        'song_id', 'title', 'artist_id', 'year', 'duration')
+        "song_id", "title", "artist_id", "year", "duration")
 
     # write songs table to parquet files partitioned by year and artist
     songs_table.write.partitionBy(
@@ -48,18 +46,24 @@ def process_song_data(spark, input_data, output_data, song_data_path):
     # extract columns to create artists table
     # artist_id, name, location, latitude, longitude
     artists_table = song_df.select(
-        'artist_id',
-        'artist_name',
-        'artist_location',
-        'artist_latitude',
-        'artist_longitude',
+        "artist_id",
+        "artist_name",
+        "artist_location",
+        "artist_latitude",
+        "artist_longitude",
     )
 
     # write artists table to parquet files
     artists_table.write.mode("overwrite").parquet(output_data + "/artists")
 
 
-def process_log_data(spark, input_data, output_data, log_data_path, song_data_path):
+def process_log_data(
+    spark,
+    input_data,
+    output_data,
+    log_data_path,
+    song_data_path,
+):
     # get filepath to log data file
     log_data = input_data + log_data_path
 
@@ -67,9 +71,9 @@ def process_log_data(spark, input_data, output_data, log_data_path, song_data_pa
     log_df = spark.read.json(log_data)
 
     # filter by actions for song plays
-    df = log_df.filter(log_df.page=="NextSong")
+    log_df = log_df.filter(log_df.page == "NextSong")
 
-    # extract columns for users table 
+    # extract columns for users table
     # user_id, first_name, last_name, gender, level
     users_table = log_df.select(
         col("userId"),
@@ -83,28 +87,30 @@ def process_log_data(spark, input_data, output_data, log_data_path, song_data_pa
     users_table.write.mode("overwrite").parquet(output_data + "/users")
 
     # create timestamp column from original timestamp column
-    get_timestamp = udf(lambda x: datetime.fromtimestamp(int(x)/1000).strftime('%Y-%m-%d %H:%M:%S'))
-    log_df = log_df.withColumn('timestamp', get_timestamp(log_df.ts))
+    get_timestamp = udf(
+        lambda x: datetime.fromtimestamp(
+            int(x)/1000).strftime("%Y-%m-%d %H:%M:%S"))
+    log_df = log_df.withColumn("timestamp", get_timestamp(log_df.ts))
 
     # create datetime column from original timestamp column
     get_datetime = udf(lambda x: str(datetime.fromtimestamp(int(x) / 1000.0)))
-    log_df = log_df.withColumn('datetime', get_datetime(log_df.ts))
+    log_df = log_df.withColumn("datetime", get_datetime(log_df.ts))
 
     # extract columns to create time table
     time_table = log_df.withColumn(
-        'start_time', col('timestamp')
+        "start_time", col("timestamp")
     ).withColumn(
-        'hour', dayofmonth('timestamp')
+        "hour", dayofmonth("timestamp")
     ).withColumn(
-        'day', dayofmonth('timestamp')
+        "day", dayofmonth("timestamp")
     ).withColumn(
-        'week', weekofyear('timestamp')
+        "week", weekofyear("timestamp")
     ).withColumn(
-        'month', month('timestamp')
+        "month", month("timestamp")
     ).withColumn(
-        'year', year('timestamp')
+        "year", year("timestamp")
     ).withColumn(
-        'weekday', dayofweek('timestamp')
+        "weekday", dayofweek("timestamp")
     )
 
     # write time table to parquet files partitioned by year and month
@@ -116,11 +122,11 @@ def process_log_data(spark, input_data, output_data, log_data_path, song_data_pa
 
     # extract columns from joined song and log datasets
     # to create songplays table
-    log_df = log_df.alias('log_df')
-    song_df = song_df.alias('song_df')
+    log_df = log_df.alias("log_df")
+    song_df = song_df.alias("song_df")
 
     songplays_table = log_df.join(
-        song_df, col('log_df.artist') == col('song_df.artist_name')).select(
+        song_df, col("log_df.artist") == col("song_df.artist_name")).select(
         col("log_df.datetime").alias("start_time"),
         col("log_df.userId").alias("user_id"),
         col("log_df.level"),
@@ -129,7 +135,7 @@ def process_log_data(spark, input_data, output_data, log_data_path, song_data_pa
         col("log_df.sessionId").alias("session_id"),
         col("log_df.location").alias("location"),
         col("log_df.userAgent").alias("user_agent"),
-    ).withColumn('songplay_id', monotonically_increasing_id())
+    ).withColumn("songplay_id", monotonically_increasing_id())
 
     # write songplays table to parquet files partitioned by year and month
     songplays_table.write.partitionBy(
@@ -147,7 +153,7 @@ def main():
         input_data,
         output_data,
         song_data_path=song_data_path,
-    )    
+    )
     process_log_data(
         spark,
         input_data,
