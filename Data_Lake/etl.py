@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import (col, dayofmonth, dayofweek,
+from pyspark.sql.functions import (col, dayofmonth, dayofweek, hour,
                                    monotonically_increasing_id, month, udf,
                                    weekofyear, year)
 
@@ -37,7 +37,7 @@ def process_song_data(
     # extract columns to create songs table
     # song_id, title, artist_id, year, duration
     songs_table = song_df.select(
-        "song_id", "title", "artist_id", "year", "duration")
+        "song_id", "title", "artist_id", "year", "duration").dropDuplicates()
 
     # write songs table to parquet files partitioned by year and artist
     songs_table.write.partitionBy(
@@ -51,7 +51,7 @@ def process_song_data(
         "artist_location",
         "artist_latitude",
         "artist_longitude",
-    )
+    ).dropDuplicates()
 
     # write artists table to parquet files
     artists_table.write.mode("overwrite").parquet(output_data + "/artists")
@@ -81,7 +81,7 @@ def process_log_data(
         col("lastName"),
         col("gender"),
         col("level"),
-    )
+    ).dropDuplicates()
 
     # write users table to parquet files
     users_table.write.mode("overwrite").parquet(output_data + "/users")
@@ -97,10 +97,11 @@ def process_log_data(
     log_df = log_df.withColumn("datetime", get_datetime(log_df.ts))
 
     # extract columns to create time table
-    time_table = log_df.withColumn(
-        "start_time", col("timestamp")
+    time_table = log_df.select("timestamp") \
+    .withColumn(
+        "start_time", log_df.timestamp
     ).withColumn(
-        "hour", dayofmonth("timestamp")
+        "hour", hour("timestamp")
     ).withColumn(
         "day", dayofmonth("timestamp")
     ).withColumn(
@@ -111,7 +112,7 @@ def process_log_data(
         "year", year("timestamp")
     ).withColumn(
         "weekday", dayofweek("timestamp")
-    )
+    ).dropDuplicates()
 
     # write time table to parquet files partitioned by year and month
     time_table.write.partitionBy(
@@ -135,7 +136,9 @@ def process_log_data(
         col("log_df.sessionId").alias("session_id"),
         col("log_df.location").alias("location"),
         col("log_df.userAgent").alias("user_agent"),
-    ).withColumn("songplay_id", monotonically_increasing_id())
+        month('log_df.datetime').alias('month'),
+        year('log_df.datetime').alias('year'),
+    ).withColumn("songplay_id", monotonically_increasing_id()).dropDuplicates()
 
     # write songplays table to parquet files partitioned by year and month
     songplays_table.write.partitionBy(
@@ -147,7 +150,7 @@ def main():
     spark = create_spark_session()
     input_data = "s3a://udacity-dend/"
     output_data = "s3a://aws-bucket-udacity-de"
-    song_data_path = "song_data/A/A/A/*.json"
+    song_data_path = "song_data/*/*/*/*.json"
     process_song_data(
         spark,
         input_data,
