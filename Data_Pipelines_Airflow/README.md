@@ -13,7 +13,7 @@ Below are two screenshots of the same Sparkify dag. The first is without using s
 ![airflow_dag_graph_view](airflow_dag_graph_view.png)
 *Sparkify initial dag*
 
-![airflow_dag_graph_view](airflow_dag_graph_view_with_subdag.png)
+![airflow_dag_graph_view_with_subdag](airflow_dag_graph_view_with_subdag.png)
 *Sparkify dag after using a sub-dag for loading all dimensions*
 
 
