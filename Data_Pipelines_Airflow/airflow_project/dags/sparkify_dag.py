@@ -9,6 +9,7 @@ from helpers.sql_queries import SqlQueries
 from load_dimensions_subdag import load_dimensions_dag
 
 start_date = datetime(2019, 1, 12)
+dag_name = 'sparkify_dag'
 default_args = {
     'owner': 'udacity',
     'start_date': start_date,
@@ -20,7 +21,7 @@ default_args = {
 }
 
 dag = DAG(
-    'sparkify_dag',
+    dag_name,
     default_args=default_args,
     description='Load and transform data in Redshift with Airflow',
     schedule_interval='0 * * * *',
@@ -29,49 +30,49 @@ dag = DAG(
 start_operator = DummyOperator(task_id='Begin_execution',  dag=dag)
 
 create_all_tables = PostgresOperator(
-    task_id="create_all_tables",
+    task_id='create_all_tables',
     dag=dag,
-    postgres_conn_id="redshift",
-    sql="create_tables.sql"
+    postgres_conn_id='redshift',
+    sql='create_tables.sql'
 )
 
 stage_events_to_redshift = StageToRedshiftOperator(
     task_id='Stage_events',
     dag=dag,
-    redshift_conn_id="redshift",
-    aws_credentials_id="aws_credentials",
-    s3_bucket="udacity-dend",
-    s3_key="log_data",
-    table="staging_events",
-    json="s3://udacity-dend/log_json_path.json"
+    redshift_conn_id='redshift',
+    aws_credentials_id='aws_credentials',
+    s3_bucket='udacity-dend',
+    s3_key='log_data',
+    table='staging_events',
+    json='s3://udacity-dend/log_json_path.json'
 )
 
 stage_songs_to_redshift = StageToRedshiftOperator(
     task_id='Stage_songs',
     dag=dag,
-    redshift_conn_id="redshift",
-    aws_credentials_id="aws_credentials",
-    s3_bucket="udacity-dend",
-    s3_key="song_data",
-    table="staging_songs",
-    json="auto"
+    redshift_conn_id='redshift',
+    aws_credentials_id='aws_credentials',
+    s3_bucket='udacity-dend',
+    s3_key='song_data',
+    table='staging_songs',
+    json='auto'
 )
 
 load_songplays_table = LoadFactOperator(
     task_id='Load_songplays_fact_table',
     dag=dag,
-    redshift_conn_id="redshift",
-    table="songplays",
+    redshift_conn_id='redshift',
+    table='songplays',
     sql=SqlQueries.songplay_table_insert,
 )
 
-trips_task_id = "load_dimensions_subdag"
+trips_task_id = 'load_dimensions_subdag'
 load_dimensions_subdag = SubDagOperator(
-    task_id="load_dimensions_subdag",
+    task_id='load_dimensions_subdag',
     subdag=load_dimensions_dag(
-        parent_dag_name="sparkify_dag",
-        task_id="load_dimensions_subdag",
-        redshift_conn_id="redshift",
+        parent_dag_name=dag_name,
+        task_id='load_dimensions_subdag',
+        redshift_conn_id='redshift',
         truncate_table=True,
         start_date=start_date,
     ),
@@ -82,10 +83,10 @@ load_dimensions_subdag = SubDagOperator(
 run_quality_checks = DataQualityOperator(
     task_id='Run_data_quality_checks',
     dag=dag,
-    redshift_conn_id="redshift",
+    redshift_conn_id='redshift',
     quality_checks=[  # inspired by answer for question 54406 - https://knowledge.udacity.com/questions/54406  # noqa
-        {'check_sql': "SELECT COUNT(*) FROM users WHERE userid is null", 'expected_result': 0},  # noqa
-        {'check_sql': "SELECT COUNT(*) FROM songs WHERE songid is null", 'expected_result': 0},  # noqa
+        {'check_sql': 'SELECT COUNT(*) FROM users WHERE userid is null', 'expected_result': 0},  # noqa
+        {'check_sql': 'SELECT COUNT(*) FROM songs WHERE songid is null', 'expected_result': 0},  # noqa
     ]
 )
 
