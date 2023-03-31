@@ -12,12 +12,14 @@ class DataQualityOperator(BaseOperator):
         self,
         redshift_conn_id="",
         quality_checks=[],  # A lits of tuples with sql and expected results
-        *args, **kwargs):
+        *args, **kwargs
+    ):
 
         super(DataQualityOperator, self).__init__(*args, **kwargs)
 
         self.redshift_conn_id = redshift_conn_id
         self.quality_checks = quality_checks
+
     def execute(self, context):
         failed_tests = []
         error_count = 0
@@ -34,7 +36,7 @@ class DataQualityOperator(BaseOperator):
             if expected != records[0]:
                 error_count += 1
                 failed_tests.append(check_sql)
- 
+
         if error_count > 0:
             self.log.error('Failed data quality check!')
             raise ValueError('Failed data quality check!')

@@ -17,6 +17,7 @@ class StageToRedshiftOperator(BaseOperator):
         JSON '{}'
         """
     )
+
     @apply_defaults
     def __init__(
         self,
@@ -26,7 +27,8 @@ class StageToRedshiftOperator(BaseOperator):
         s3_key="",
         table="",
         json="",
-        *args, **kwargs):
+        *args, **kwargs
+    ):
 
         super(StageToRedshiftOperator, self).__init__(*args, **kwargs)
         self.redshift_conn_id = redshift_conn_id

@@ -19,11 +19,12 @@ default_args = {
     'email_on_retry': False,
 }
 
-dag = DAG('sparkify_dag',
-          default_args=default_args,
-          description='Load and transform data in Redshift with Airflow',
-          schedule_interval='0 * * * *',
-        )
+dag = DAG(
+    'sparkify_dag',
+    default_args=default_args,
+    description='Load and transform data in Redshift with Airflow',
+    schedule_interval='0 * * * *',
+    )
 
 start_operator = DummyOperator(task_id='Begin_execution',  dag=dag)
 
@@ -66,58 +67,25 @@ load_songplays_table = LoadFactOperator(
 
 trips_task_id = "load_dimensions_subdag"
 load_dimensions_subdag = SubDagOperator(
+    task_id="load_dimensions_subdag",
     subdag=load_dimensions_dag(
-        "sparkify_dag",
-        trips_task_id,
+        parent_dag_name="sparkify_dag",
+        task_id="load_dimensions_subdag",
         redshift_conn_id="redshift",
+        truncate_table=True,
         start_date=start_date,
     ),
-    task_id=trips_task_id,
     dag=dag,
 )
 
-# load_user_dimension_table = LoadDimensionOperator(
-#     task_id='Load_user_dim_table',
-#     dag=dag,
-#     redshift_conn_id="redshift",
-#     table="user",
-#     sql=SqlQueries.user_table_insert,
-#     truncate_table=False,
-# )
-
-# load_song_dimension_table = LoadDimensionOperator(
-#     task_id='Load_song_dim_table',
-#     dag=dag,
-#     redshift_conn_id="redshift",
-#     table="song",
-#     sql=SqlQueries.song_table_insert,
-#     truncate_table=False,
-# )
-
-# load_artist_dimension_table = LoadDimensionOperator(
-#     task_id='Load_artist_dim_table',
-#     dag=dag,
-#     redshift_conn_id="redshift",
-#     table="artist",
-#     sql=SqlQueries.artist_table_insert,
-#     truncate_table=False,
-# )
-
-# load_time_dimension_table = LoadDimensionOperator(
-#     task_id='Load_time_dim_table',
-#     dag=dag,
-#     redshift_conn_id="redshift",
-#     table="time",
-#     sql=SqlQueries.time_table_insert,
-#     truncate_table=False,
-# )
 
 run_quality_checks = DataQualityOperator(
     task_id='Run_data_quality_checks',
     dag=dag,
-    quality_checks=[  # inspired by answer for question 54406 - https://knowledge.udacity.com/questions/54406
-        {'check_sql': "SELECT COUNT(*) FROM users WHERE userid is null", 'expected_result': 0},
-        {'check_sql': "SELECT COUNT(*) FROM songs WHERE songid is null", 'expected_result': 0}
+    redshift_conn_id="redshift",
+    quality_checks=[  # inspired by answer for question 54406 - https://knowledge.udacity.com/questions/54406  # noqa
+        {'check_sql': "SELECT COUNT(*) FROM users WHERE userid is null", 'expected_result': 0},  # noqa
+        {'check_sql': "SELECT COUNT(*) FROM songs WHERE songid is null", 'expected_result': 0},  # noqa
     ]
 )
 
@@ -132,12 +100,3 @@ stage_songs_to_redshift >> load_songplays_table
 load_songplays_table >> load_dimensions_subdag
 load_dimensions_subdag >> run_quality_checks
 run_quality_checks >> end_operator
-# load_songplays_table >> load_song_dimension_table
-# load_songplays_table >> load_user_dimension_table
-# load_songplays_table >> load_artist_dimension_table
-# load_songplays_table >> load_time_dimension_table
-# load_song_dimension_table >> run_quality_checks
-# load_user_dimension_table >> run_quality_checks
-# load_artist_dimension_table >> run_quality_checks
-# load_time_dimension_table >> run_quality_checks
-# run_quality_checks >> end_operator
