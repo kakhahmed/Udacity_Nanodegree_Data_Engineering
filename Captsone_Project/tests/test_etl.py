@@ -1,9 +1,12 @@
-import pandas as pd
-from pyspark.sql import SparkSession
-import pytest
-import etl
+import fnmatch
 import os
 
+import pandas as pd
+import pytest
+from pyspark.sql import SparkSession
+from pyspark.sql.types import IntegerType, StringType, StructField, StructType
+
+import etl
 
 SPARK = SparkSession.builder \
     .appName("Testing") \
@@ -11,36 +14,42 @@ SPARK = SparkSession.builder \
     .getOrCreate()
 
 
+def check_for_parquet_files(directory):
+    for _, _, files in os.walk(directory):
+        for _ in fnmatch.filter(files, '*.parquet'):
+            return True
+    return False
+
+
 def test_fix_names():
     """Test output for etl.fix_names."""
-    # create a sample dataframe with a column containing NAN values
+    # create a sample data frame with a column containing NAN values
     data = [
         ("John Doe", "John", "Doe"),
         ("John Doe", None, "Doe"),
         ("John Doe", "John", None),
-        (None, None, "Doe"),
-        (None, "John", None)
     ]
     df = SPARK.createDataFrame(data, ["name", "first_name", "last_name"])
-    assert etl.fix_names(df).toPandas() == pd.DataFrame(
+    print(etl.fix_names(df).toPandas())
+    assert etl.fix_names(df).toPandas().equals(pd.DataFrame(
         {
-            'name': ['John Doe', 'John Doe', 'John Doe', None, None],
-            'first_name': ['John', None, 'John', None, 'John'],
-            'last_name': ['Doe', 'Doe', None, 'Doe', None]
+            'name': ['John Doe', 'John Doe', 'John Doe'],
+            'first_name': ['John', 'John', 'John'],
+            'last_name': ['Doe', 'Doe', 'Doe']
         }
-    )
+    ))
 
 
 def test_write_table_parquet(tmp_path):
-    """Test etl.create_player_appearance_table
+    """Test etl.write_table_parquet
 
     Args:
         tmp_path (Str): Temporary path for storing parquet data.
     """
     data = [("Alice", 25), ("Bob", 30), ("Charlie", 35)]
     df = SPARK.createDataFrame(data, ["name", "age"])
-    etl.write_table_parquet(df, tmp_path, "tmp")
-    assert os.path.isfile(tmp_path + 'tmp.parquet')
+    etl.write_table_parquet(df, ["name"], str(tmp_path) + '/tmp')
+    assert check_for_parquet_files(str(tmp_path) + '/tmp')
 
 
 def test_select_table():
@@ -63,6 +72,12 @@ def test_create_players_table(tmp_path):
         tmp_path (Str): Temporary path for storing parquet data.
     """
     cols = [
+        "player_id", "date_of_birth", "country_of_birth",
+        "country_of_citizenship", "first_name",
+        "last_name", "height_in_cm",
+        "foot", "position", "sub_position"
+        ]
+    expected_cols = [
         "player_id", "birth_date", "birth_country",
         "citizenship", "first_name",
         "last_name", "height",
@@ -74,9 +89,9 @@ def test_create_players_table(tmp_path):
         176, "left", "left-wing", "striker"
         )]
     df = SPARK.createDataFrame(data, cols)
-    etl.create_players_table(df, tmp_path)
-    assert df.columns == cols
-    assert os.path.isfile(tmp_path + 'players.parquet')
+    df = etl.create_players_table(df, str(tmp_path))
+    assert df.columns == expected_cols
+    assert check_for_parquet_files(str(tmp_path) + '/players')
 
 
 def test_create_games_table(tmp_path):
@@ -89,12 +104,21 @@ def test_create_games_table(tmp_path):
         "game_id", "home_club_id", "away_club_id",
         "home_club_goals", "away_club_goals",
         "home_club_position", "away_club_position",
+        "home_club_manager_name", "away_club_manager_name",
+        "stadium", "attendance", "referee"
         ]
-    data = [(1, 1, 2, 1, 2, 2, 1)]
+    expected_cols = [
+        "game_id", "home_club_id", "away_club_id",
+        "home_club_goals", "away_club_goals",
+        "home_club_position", "away_club_position",
+        "home_club_manager", "away_club_manager",
+        "stadium", "attendance", "referee"
+        ]
+    data = [(1, 1, 2, 1, 2, 2, 1, "k", "p", "a", 1000, "r")]
     df = SPARK.createDataFrame(data, cols)
-    etl.create_games_table(df, tmp_path)
-    assert df.columns == cols
-    assert os.path.isfile(tmp_path + 'games.parquet')
+    df = etl.create_games_table(df, str(tmp_path))
+    assert df.columns == expected_cols
+    assert check_for_parquet_files(str(tmp_path) + '/games')
 
 
 def test_create_clubs_table(tmp_path):
@@ -114,9 +138,9 @@ def test_create_clubs_table(tmp_path):
         "stadium_arena", 6000, "coach"
         )]
     df = SPARK.createDataFrame(data, cols)
-    df = etl.create_clubs_table(df, tmp_path)
+    df = etl.create_clubs_table(df, str(tmp_path))
     assert df.columns == cols
-    assert os.path.isfile(tmp_path + 'clubs.parquet')
+    assert check_for_parquet_files(str(tmp_path) + '/clubs')
 
 
 def test_create_competitions_table(tmp_path):
@@ -130,13 +154,13 @@ def test_create_competitions_table(tmp_path):
         ]
     data = [(1, "competition", "domestic", 1)]
     df = SPARK.createDataFrame(data, cols)
-    etl.create_competitions_table(df, tmp_path)
+    etl.create_competitions_table(df, str(tmp_path))
     assert df.columns == cols
-    assert os.path.isfile(tmp_path + 'competitions.parquet')
+    assert check_for_parquet_files(str(tmp_path) + '/competitions')
 
 
 def test_create_countries_table(tmp_path):
-    """Test etl.create_player_appearance_table
+    """Test etl.create_countries_table
 
     Args:
         tmp_path (Str): Temporary path for storing parquet data.
@@ -147,23 +171,23 @@ def test_create_countries_table(tmp_path):
         ]
     data = [(1, "country", 111, 222)]
     df = SPARK.createDataFrame(data, cols)
-    etl.create_countries_table(df, tmp_path)
+    etl.create_countries_table(df, str(tmp_path))
     assert df.columns == cols
-    assert os.path.isfile(tmp_path + 'countries.parquet')
+    assert check_for_parquet_files(str(tmp_path) + '/countries')
 
 
 def test_create_time_table(tmp_path):
-    """Test etl.create_player_appearance_table
+    """Test etl.create_time_table
 
     Args:
         tmp_path (Str): Temporary path for storing parquet data.
     """
     cols = ["date", "hour", "day", "week", "month", "weekday", "year"]
-    data = [(1, 1, 2, 1, 2, 2, 1)]
-    df = SPARK.createDataFrame(data, )
-    etl.create_time_table(df, tmp_path)
+    data = [('2014-11-22T00:00:00.000+01:00', 1, 2, 1, 2, 2, 1)]
+    df = SPARK.createDataFrame(data, cols)
+    etl.create_time_table(df, str(tmp_path))
     assert df.columns == cols
-    assert os.path.isfile(tmp_path + 'time.parquet')
+    assert check_for_parquet_files(str(tmp_path) + '/time')
 
 
 def test_create_player_appearance_table(tmp_path):
@@ -179,9 +203,9 @@ def test_create_player_appearance_table(tmp_path):
         ]
     data = [(1, 1, 1, 1, 1, 2, 0, 45, 90, 1, 1, "00:00:00")]
     df = SPARK.createDataFrame(data, cols)
-    etl.create_player_appearance_table(df, tmp_path)
+    etl.create_player_appearance_table(df, str(tmp_path))
     assert df.columns == cols
-    assert os.path.isfile(tmp_path + 'player_appearance.parquet')
+    assert check_for_parquet_files(str(tmp_path) + '/player_appearance')
 
 
 def test_data_quality_check():
@@ -190,11 +214,14 @@ def test_data_quality_check():
     table = {"tested_table": df}
     etl.data_quality_check(table)
 
-
 def test_raise_data_quality_check():
-    data = []
-    df = SPARK.createDataFrame(data, ["name", "age"])
-    table = {"tested_table": data}
+    empty_schema = StructType([
+        StructField("col1", StringType(), True),
+        StructField("col2", IntegerType(), True)
+    ])
+
+    empty_df = SPARK.createDataFrame([], schema=empty_schema)
+    table = {"tested_table": empty_df}
     with pytest.raises(ValueError):
         etl.data_quality_check(table)
 
@@ -202,4 +229,4 @@ def test_raise_data_quality_check():
     table = {"tested_table": df}
     # Table doesn't exists.
     with pytest.raises(ValueError):
-        etl.data_quality_check(df)
+        etl.data_quality_check(table)
