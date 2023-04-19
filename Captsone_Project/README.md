@@ -5,6 +5,15 @@
 Create a data warehouse analyzing football player appearances based on multiple source from `football_data_transfer_market` for European competitions. Either raw CSV datasets or a normalized JSON dataset.
     - Player appearance analysis: By analyzing various player stats such as goals, assists, yellow_cards, red_cards. One can evaluate the performance of individual players and identify areas where they need to improve.
 
+#### Contents:
+
+- Capstone_Project.ipynb: The main ETL notebook which has all needed steps for completing the project.
+- requirements.txt: The file with all needed dependencies to run the ETL
+- etl.py: The python module to run the pipeline using spark-script for example.
+- prepare_raw_data.ipynb: This notebook is used to create one of the main two datasets of this project. It produces JSON combined data source.
+- tests/test_etl.py: consists of unit tests using pytest for the functions used in our pipeline.
+- raw_data: Unlike the other CSV data sources used. This one is included as it was made specially for this project.
+
 # Datasets used
 
 `Football Data from Transfermarkt`: https://www.kaggle.com/datasets/davidcariboo/player-scores
@@ -70,8 +79,48 @@ List the steps necessary to pipeline the data into the chosen data model
 #### 4.1 Create the data model
 - Build the data pipelines to create the data model.
 
+    - The pipeline consists of:
+      - etl.py: the main pipeline module.
+      - tests/test_etl.py: unit tests for the pipline functions.
+      - requirements.txt: The file containing all dependencies.
+      - `pip install -r requirements.txt` should be sufficient to install all dependencies.
+    - The pipeline can be triggered by running etl.py. It should be possible to run it as a spark script using `spark-submit etl.py `
 #### 4.2 Data Quality Checks
  
-Run Quality Checks:
-1- Data availability by checking that all data frames exists.
+Run Quality Checks:  
+1- Data availability by checking that all data frames exists.  
 2- Table data completeness and no missing rows for any table. 
+
+#### 4.3 Data dictionary 
+Create a data dictionary for your data model. For each field, provide a brief description of what the data is and where it came from. You can include the data dictionary in the notebook or in a separate file.
+
+    - Refer to Capstone_Project.ipynb
+
+#### Step 5: Complete Project Write Up
+* Clearly state the rationale for the choice of tools and technologies for the project.
+* Propose how often the data should be updated and why.
+* Write a description of how you would approach the problem differently under the following scenarios:
+ * The data was increased by 100x.
+ * The data populates a dashboard that must be updated on a daily basis by 7am every day.
+ * The database needed to be accessed by 100+ people.
+
+* Choice of tools and technologies for the project:
+  - Dataset: The `football_data_transfer_market` dataset was chosen for its freshness, size, and source credibility.
+  - Spark: It was used for speed by performing in-memory computations, scalability when the data size increase we can increase number of used clusters, flexibility in python and task versatility with large datasets.
+
+* Propose how often the data should be updated and why.
+  - Main source of data is at [Kaggle](https://www.kaggle.com/datasets/davidcariboo/player-scores) is updated weekly. Hence, weekly update is proposed.
+
+* Write a description of how you would approach the problem differently under the following scenarios:
+ * The data was increased by 100x.
+    - As we are already using spark, we are able to scale our pipeline by increasing the number of partitions and size of Spark cluster, optimize the data pipeline by tuning Spark configuration parameters, use distributed file system like Hadoop or Amazon S3 to distribute data across multiple nodes.
+ * The data populates a dashboard that must be updated on a daily basis by 7am every day.
+    - Optimize data extraction.
+    - Use efficient data storage, The used parquet should already help in this as it can provide fast access to the data.
+    - Airflow can be very helpful in orchestrating and scheduling the data pipeline.
+    - Monitoring and alerting to identify issues and errors before they become critical. Tools like Nagios can help.
+ * The database needed to be accessed by 100+ people.
+    - Make sure database can handle increased number of users and their queries by scaling up hardware resources.
+    - Consider using distributed architecture for example using distributed file system like Hadoop to handle large datasets and provide fault tolerance.
+    - Redshift can be good solution as it handle large amounts of data and provide fast query performance.
+    - Monitor and optimize the pipeline regularly using Apache Spark monitoring
